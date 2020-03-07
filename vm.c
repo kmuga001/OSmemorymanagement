@@ -337,8 +337,8 @@ copyuvm(pde_t *pgdir, uint sz, uint stacksize)
       goto bad;
   }
   //lab 3 - iteration over stack pages & tracking stack size
-  //use PGROUNDUP
-  for(i = NEWKERNBASE - PGSIZE + 1; stacksize > 0; i -= PGSIZE, stacksize--){ //may need to change, unsure
+  //use PGROUNDUP NEWKERNBASE - PGSIZE + 1
+  for(i = PGROUNDUP(NEWKERNBASE - PGSIZE); stacksize > 0; i -= PGSIZE, stacksize--){ //may need to change, unsure
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0) //this part is the same from the above for loop
       panic("copyuvm: pte should exist");
     if(!(*pte & PTE_P))

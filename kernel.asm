@@ -10711,11 +10711,11 @@ rcr2(void)
   uint val;
   asm volatile("movl %%cr2,%0" : "=r" (val));
 80105528:	0f 20 d6             	mov    %cr2,%esi
-  case T_PGFLT:
-    //YOUR CODE
-    ;
-    //uint numpages = myproc()->stacksize + 1;
-    //uint cr = rcr2();
+    cprintf("cpu%d: spurious interrupt at %x:%x\n",
+            cpuid(), tf->cs, tf->eip);
+    lapiceoi();
+    break;
+  case T_PGFLT:;
     if(((rcr2()) > NEWKERNBASE - (PGSIZE * (myproc()->stacksize + 1) + 1))){ 
 8010552b:	e8 60 e1 ff ff       	call   80103690 <myproc>
 80105530:	8b 50 7c             	mov    0x7c(%eax),%edx
@@ -10733,9 +10733,9 @@ rcr2(void)
     if(myproc() == 0 || (tf->cs&3) == 0){
 80105548:	e8 43 e1 ff ff       	call   80103690 <myproc>
 8010554d:	85 c0                	test   %eax,%eax
-8010554f:	0f 84 71 02 00 00    	je     801057c6 <trap+0x2c6>
+8010554f:	0f 84 75 02 00 00    	je     801057ca <trap+0x2ca>
 80105555:	f6 43 3c 03          	testb  $0x3,0x3c(%ebx)
-80105559:	0f 84 67 02 00 00    	je     801057c6 <trap+0x2c6>
+80105559:	0f 84 6b 02 00 00    	je     801057ca <trap+0x2ca>
 8010555f:	0f 20 d1             	mov    %cr2,%ecx
       cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
               tf->trapno, cpuid(), tf->eip, rcr2());
@@ -10764,16 +10764,16 @@ rcr2(void)
     cprintf("pid %d %s: trap %d err %d on cpu %d "
 80105592:	8b 55 dc             	mov    -0x24(%ebp),%edx
 80105595:	89 7c 24 14          	mov    %edi,0x14(%esp)
-80105599:	89 4c 24 1c          	mov    %ecx,0x1c(%esp)
-8010559d:	8b 4d e4             	mov    -0x1c(%ebp),%ecx
+80105599:	8b 7d e4             	mov    -0x1c(%ebp),%edi
+8010559c:	89 4c 24 1c          	mov    %ecx,0x1c(%esp)
             myproc()->pid, myproc()->name, tf->trapno,
 801055a0:	83 c6 6c             	add    $0x6c,%esi
     cprintf("pid %d %s: trap %d err %d on cpu %d "
 801055a3:	89 54 24 18          	mov    %edx,0x18(%esp)
+801055a7:	89 7c 24 10          	mov    %edi,0x10(%esp)
             myproc()->pid, myproc()->name, tf->trapno,
-801055a7:	89 74 24 08          	mov    %esi,0x8(%esp)
+801055ab:	89 74 24 08          	mov    %esi,0x8(%esp)
     cprintf("pid %d %s: trap %d err %d on cpu %d "
-801055ab:	89 4c 24 10          	mov    %ecx,0x10(%esp)
 801055af:	8b 40 10             	mov    0x10(%eax),%eax
 801055b2:	c7 04 24 c8 76 10 80 	movl   $0x801076c8,(%esp)
 801055b9:	89 44 24 04          	mov    %eax,0x4(%esp)
@@ -10934,44 +10934,49 @@ rcr2(void)
 8010573f:	c7 04 24 60 4d 11 80 	movl   $0x80114d60,(%esp)
 80105746:	e8 d5 ea ff ff       	call   80104220 <release>
 8010574b:	e9 1d ff ff ff       	jmp    8010566d <trap+0x16d>
-80105750:	0f 20 d7             	mov    %cr2,%edi
-80105753:	0f 20 d6             	mov    %cr2,%esi
-	if(allocuvm(myproc()->pgdir, PGROUNDDOWN(rcr2()), PGROUNDDOWN(rcr2()) + 8) == 0){
-80105756:	e8 35 df ff ff       	call   80103690 <myproc>
-8010575b:	81 e7 00 f0 ff ff    	and    $0xfffff000,%edi
-80105761:	81 e6 00 f0 ff ff    	and    $0xfffff000,%esi
-80105767:	83 c7 08             	add    $0x8,%edi
-8010576a:	89 7c 24 08          	mov    %edi,0x8(%esp)
-8010576e:	89 74 24 04          	mov    %esi,0x4(%esp)
-80105772:	8b 40 04             	mov    0x4(%eax),%eax
-80105775:	89 04 24             	mov    %eax,(%esp)
-80105778:	e8 23 11 00 00       	call   801068a0 <allocuvm>
-8010577d:	85 c0                	test   %eax,%eax
-8010577f:	74 26                	je     801057a7 <trap+0x2a7>
+        uint user_top = KERNBASE - (PGSIZE * (myproc()->stacksize + 1));
+80105750:	e8 3b df ff ff       	call   80103690 <myproc>
+80105755:	8b 70 7c             	mov    0x7c(%eax),%esi
+        if(allocuvm(myproc()->pgdir, user_top, user_top + 8) == 0){
+80105758:	e8 33 df ff ff       	call   80103690 <myproc>
+        uint user_top = KERNBASE - (PGSIZE * (myproc()->stacksize + 1));
+8010575d:	f7 de                	neg    %esi
+8010575f:	c1 e6 0c             	shl    $0xc,%esi
+        if(allocuvm(myproc()->pgdir, user_top, user_top + 8) == 0){
+80105762:	8d 96 08 f0 ff 7f    	lea    0x7ffff008(%esi),%edx
+        uint user_top = KERNBASE - (PGSIZE * (myproc()->stacksize + 1));
+80105768:	81 c6 00 f0 ff 7f    	add    $0x7ffff000,%esi
+        if(allocuvm(myproc()->pgdir, user_top, user_top + 8) == 0){
+8010576e:	89 54 24 08          	mov    %edx,0x8(%esp)
+80105772:	89 74 24 04          	mov    %esi,0x4(%esp)
+80105776:	8b 40 04             	mov    0x4(%eax),%eax
+80105779:	89 04 24             	mov    %eax,(%esp)
+8010577c:	e8 1f 11 00 00       	call   801068a0 <allocuvm>
+80105781:	85 c0                	test   %eax,%eax
+80105783:	74 26                	je     801057ab <trap+0x2ab>
         myproc()->stacksize += 1;
-80105781:	e8 0a df ff ff       	call   80103690 <myproc>
-80105786:	83 40 7c 01          	addl   $0x1,0x7c(%eax)
+80105785:	e8 06 df ff ff       	call   80103690 <myproc>
+8010578a:	83 40 7c 01          	addl   $0x1,0x7c(%eax)
         cprintf("case T_PGFLT from trap.c: allocuvm succeeded. Number of pages allocated: %d\n", myproc()->stacksize);
-8010578a:	e8 01 df ff ff       	call   80103690 <myproc>
-8010578f:	8b 40 7c             	mov    0x7c(%eax),%eax
-80105792:	c7 04 24 44 76 10 80 	movl   $0x80107644,(%esp)
-80105799:	89 44 24 04          	mov    %eax,0x4(%esp)
-8010579d:	e8 ae ae ff ff       	call   80100650 <cprintf>
+8010578e:	e8 fd de ff ff       	call   80103690 <myproc>
+80105793:	8b 40 7c             	mov    0x7c(%eax),%eax
+80105796:	c7 04 24 44 76 10 80 	movl   $0x80107644,(%esp)
+8010579d:	89 44 24 04          	mov    %eax,0x4(%esp)
+801057a1:	e8 aa ae ff ff       	call   80100650 <cprintf>
         break;
-801057a2:	e9 27 fe ff ff       	jmp    801055ce <trap+0xce>
+801057a6:	e9 23 fe ff ff       	jmp    801055ce <trap+0xce>
 		cprintf("case T_PGFLT from trap.c: allocuvm failed. Number of current allocated pages: %d\n", myproc()->stacksize);
-801057a7:	e8 e4 de ff ff       	call   80103690 <myproc>
-801057ac:	8b 40 7c             	mov    0x7c(%eax),%eax
-801057af:	c7 04 24 f0 75 10 80 	movl   $0x801075f0,(%esp)
-801057b6:	89 44 24 04          	mov    %eax,0x4(%esp)
-801057ba:	e8 91 ae ff ff       	call   80100650 <cprintf>
+801057ab:	e8 e0 de ff ff       	call   80103690 <myproc>
+801057b0:	8b 40 7c             	mov    0x7c(%eax),%eax
+801057b3:	c7 04 24 f0 75 10 80 	movl   $0x801075f0,(%esp)
+801057ba:	89 44 24 04          	mov    %eax,0x4(%esp)
+801057be:	e8 8d ae ff ff       	call   80100650 <cprintf>
  		exit();
-801057bf:	e8 cc e2 ff ff       	call   80103a90 <exit>
-801057c4:	eb bb                	jmp    80105781 <trap+0x281>
-801057c6:	0f 20 d7             	mov    %cr2,%edi
+801057c3:	e8 c8 e2 ff ff       	call   80103a90 <exit>
+801057c8:	eb bb                	jmp    80105785 <trap+0x285>
+801057ca:	0f 20 d7             	mov    %cr2,%edi
       cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
-801057c9:	8b 73 38             	mov    0x38(%ebx),%esi
-801057cc:	8d 74 26 00          	lea    0x0(%esi,%eiz,1),%esi
+801057cd:	8b 73 38             	mov    0x38(%ebx),%esi
 801057d0:	e8 9b de ff ff       	call   80103670 <cpuid>
 801057d5:	89 7c 24 10          	mov    %edi,0x10(%esp)
 801057d9:	89 74 24 0c          	mov    %esi,0xc(%esp)
@@ -14693,7 +14698,7 @@ bad:
 80106bed:	5f                   	pop    %edi
 80106bee:	5d                   	pop    %ebp
 80106bef:	c3                   	ret    
-  for(i = NEWKERNBASE - PGSIZE + 1; stacksize > 0; i -= PGSIZE, stacksize--){ //may need to change, unsure
+  for(i = PGROUNDUP(NEWKERNBASE - PGSIZE); stacksize > 0; i -= PGSIZE, stacksize--){ //may need to change, unsure
 80106bf0:	8b 45 10             	mov    0x10(%ebp),%eax
 80106bf3:	85 c0                	test   %eax,%eax
 80106bf5:	0f 84 9e 00 00 00    	je     80106c99 <copyuvm+0x179>
@@ -14720,7 +14725,7 @@ bad:
 80106c45:	e8 56 f9 ff ff       	call   801065a0 <mappages>
 80106c4a:	85 c0                	test   %eax,%eax
 80106c4c:	78 8d                	js     80106bdb <copyuvm+0xbb>
-  for(i = NEWKERNBASE - PGSIZE + 1; stacksize > 0; i -= PGSIZE, stacksize--){ //may need to change, unsure
+  for(i = PGROUNDUP(NEWKERNBASE - PGSIZE); stacksize > 0; i -= PGSIZE, stacksize--){ //may need to change, unsure
 80106c4e:	81 eb 00 10 00 00    	sub    $0x1000,%ebx
 80106c54:	83 6d 10 01          	subl   $0x1,0x10(%ebp)
 80106c58:	74 3f                	je     80106c99 <copyuvm+0x179>
