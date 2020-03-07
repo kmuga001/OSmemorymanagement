@@ -77,7 +77,23 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
+  case T_PGFLT:
+    //YOUR CODE
+    ;
+    //uint numpages = myproc()->stacksize + 1;
+    //uint cr = rcr2();
+    if(((rcr2()) > NEWKERNBASE - (PGSIZE * (myproc()->stacksize + 1) + 1))){ 
+        //if(allocuvm(myproc()->pgdir, KERNBASE - (PGSIZE * (myproc()->stacksize + 1)), KERNBASE - (PGSIZE * (myproc()->stacksize + 1)) + 2) == 0){
+	if(allocuvm(myproc()->pgdir, PGROUNDDOWN(rcr2()), PGROUNDDOWN(rcr2()) + 8) == 0){
+		cprintf("case T_PGFLT from trap.c: allocuvm failed. Number of current allocated pages: %d\n", myproc()->stacksize);
+ 		exit();
+        }
 
+        myproc()->stacksize += 1;
+        cprintf("case T_PGFLT from trap.c: allocuvm succeeded. Number of pages allocated: %d\n", myproc()->stacksize);
+        break;
+    }
+    //break;
   //PAGEBREAK: 13
   default:
     if(myproc() == 0 || (tf->cs&3) == 0){
